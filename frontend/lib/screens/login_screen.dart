@@ -1,0 +1,8 @@
+import 'package:flutter/material.dart';
+import '../services/api.dart';
+class LoginScreen extends StatefulWidget { const LoginScreen({super.key}); @override State<LoginScreen> createState()=>_LoginScreenState(); }
+class _LoginScreenState extends State<LoginScreen>{ final email=TextEditingController(); final pass=TextEditingController(); bool loading=false; final api=ApiService();
+Future<void> login() async { setState(()=>loading=true); try { await api.login(email.text,pass.text); if(mounted) Navigator.pushReplacement(context,MaterialPageRoute(builder:(_)=>const HomeScreen())); } catch(e){ if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(e.toString()))); } finally { if(mounted)setState(()=>loading=false); } }
+@override Widget build(BuildContext c)=>Scaffold(body:Center(child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:420),child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[const Text('AI Parent Tutor',style:TextStyle(fontSize:30,fontWeight:FontWeight.bold)),const SizedBox(height:24),TextField(controller:email,decoration:const InputDecoration(labelText:'Email')),TextField(controller:pass,obscureText:true,decoration:const InputDecoration(labelText:'Password')),const SizedBox(height:20),FilledButton(onPressed:loading?null:login,child:Text(loading?'Signing in...':'Sign in'))])))));
+}
+class HomeScreen extends StatelessWidget { const HomeScreen({super.key}); @override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:const Text('Parent Dashboard')),body:const Center(child:Text('Children, chapters, lessons and progress dashboard'))); }
