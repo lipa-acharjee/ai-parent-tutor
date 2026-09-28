@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import 'chapter_upload_screen.dart';
 import '../learning/learn_chapter_screen.dart';
+import '../learning/practice_questions_screen.dart';
 
 class ChapterListScreen extends StatefulWidget {
   final Map<String, dynamic> child;
@@ -694,6 +695,77 @@ class _ChapterListScreenState
     );
   }
 
+
+// ============================================================
+// OPEN PRACTICE QUESTIONS
+// ============================================================
+
+Future<void> _openPracticeQuestions(
+  dynamic chapter,
+) async {
+  final chapterId = chapter['id']?.toString();
+
+  if (chapterId == null || chapterId.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Chapter ID is missing.',
+        ),
+      ),
+    );
+    return;
+  }
+
+  try {
+    // Find the latest ready lesson for this chapter.
+    final lessonInfo =
+        await ApiService.getChapterLesson(
+      chapterId,
+    );
+
+    final lessonId =
+        lessonInfo['lesson_id']?.toString();
+
+    if (lessonId == null || lessonId.isEmpty) {
+      throw Exception(
+        'No generated lesson was found for this chapter.',
+      );
+    }
+
+    // Get the complete lesson including questions.
+    final lesson =
+        await ApiService.getLesson(
+      lessonId,
+    );
+
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            PracticeQuestionsScreen(
+          lesson: lesson,
+          child:
+              Map<String, dynamic>.from(
+            widget.child,
+          ),
+        ),
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Practice questions are not available yet: $e',
+        ),
+      ),
+    );
+  }
+}
+
   // ============================================================
   // CHAPTER OPTIONS
   // ============================================================
@@ -751,28 +823,22 @@ class _ChapterListScreenState
               // ------------------------------------------------
 
               ListTile(
-                leading: const Icon(
-                  Icons.quiz,
-                ),
-                title: const Text(
-                  'Practice Questions',
-                ),
-                onTap: () {
-                  Navigator.pop(
-                    sheetContext,
-                  );
+  leading: const Icon(
+    Icons.quiz,
+  ),
+  title: const Text(
+    'Practice Questions',
+  ),
+  onTap: () {
+    Navigator.pop(
+      sheetContext,
+    );
 
-                  ScaffoldMessenger.of(
-                    this.context,
-                  ).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Questions screen will be connected next.',
-                      ),
-                    ),
-                  );
-                },
-              ),
+    _openPracticeQuestions(
+      chapter,
+    );
+  },
+),
 
               // ------------------------------------------------
               // DELETE

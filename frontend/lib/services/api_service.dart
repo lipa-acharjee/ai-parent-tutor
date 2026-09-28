@@ -562,12 +562,13 @@ static  Future<void> deleteChapter(String chapterId) async {
   // ============================================================
 
   static Future<Map<String, dynamic>> uploadChapterImages({
-    required String childId,
-    required String title,
-    required String subject,
-    required String grade,
-    required List<ChapterImage> imageFiles,
-  }) async {
+  required String childId,
+  required String title,
+  required String subject,
+  required String grade,
+  required List<ChapterImage> imageFiles,
+  String customPrompt = '',
+}) async {
     final token =
         await AuthService.getAccessToken();
 
@@ -604,6 +605,9 @@ static  Future<void> deleteChapter(String chapterId) async {
 
     request.fields['grade'] =
         grade;
+
+    request.fields['custom_prompt'] =
+    customPrompt.trim();
 
     for (final file in imageFiles) {
   final bytes = file.bytes;
@@ -827,6 +831,47 @@ static  Future<void> deleteChapter(String chapterId) async {
       '$errorMessage',
     );
   }
+
+
+// GET LATEST READY LESSON FOR A CHAPTER
+static Future<Map<String, dynamic>> getChapterLesson(
+  String chapterId,
+) async {
+  final token = await AuthService.getAccessToken();
+
+  if (token == null || token.isEmpty) {
+    throw Exception('No access token found');
+  }
+
+  final uri = Uri.parse(
+    '$baseUrl/api/v1/lessons/chapter/$chapterId',
+  );
+
+  final response = await http.get(
+    uri,
+    headers: {
+      'Authorization': 'Bearer $token',
+    },
+  );
+
+  if (response.statusCode == 200) {
+    final data = jsonDecode(response.body);
+
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+
+    throw Exception(
+      'Unexpected chapter lesson response format',
+    );
+  }
+
+  throw Exception(
+    'Failed to get chapter lesson '
+    '(${response.statusCode}): ${response.body}',
+  );
+}
+
 
   // ============================================================
   // GET GENERATED LESSON

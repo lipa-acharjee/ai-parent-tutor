@@ -56,7 +56,7 @@ from app.core.config import settings
 from app.api.v1 import auth, children, chapters, lessons, learning
 from starlette.middleware.sessions import SessionMiddleware
 from app.api.v1 import videos
-
+from app.api.v1.kling import router as kling_router
 
 # --------------------------------------------------
 # Metrics
@@ -190,4 +190,10 @@ app.include_router(
     videos.router,
     prefix="/api/v1/videos",
     tags=["videos"],
+)
+
+app.include_router(
+    kling_router,
+    prefix="/api/v1/kling",
+    tags=["Kling"],
 )

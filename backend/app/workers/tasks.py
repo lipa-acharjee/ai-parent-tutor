@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app.workers.celery_app import celery
 from app.db.database import SessionLocal
-from app.db.models import Lesson, Question
+from app.db.models import Chapter, Lesson, Question
 from app.ai.graph import build_graph
 from app.services.storage import storage
 from app.services.video import get_video_service
@@ -75,6 +75,51 @@ async def _run(
                 )
 
             # ----------------------------------------------------
+            # Load the Chapter for parent custom instructions
+            # ----------------------------------------------------
+
+            chapter_result = await db.execute(
+                select(Chapter).where(
+                    Chapter.id == chapter_id,
+                )
+            )
+
+            chapter = chapter_result.scalar_one_or_none()
+
+            if not chapter:
+                raise RuntimeError(
+                    f"Chapter record {chapter_id} was not found."
+                )
+
+            # ----------------------------------------------------
+            # Parent custom instructions
+            # ----------------------------------------------------
+
+            custom_prompt = (
+                chapter.custom_prompt or ""
+            ).strip()
+
+            effective_question_count = n
+
+            if custom_prompt:
+                from app.ai.service import resolve_question_count
+
+                effective_question_count = resolve_question_count(
+                    n,
+                    custom_prompt,
+                )
+
+            print(
+                f"CUSTOM PARENT INSTRUCTIONS: "
+                f"{bool(custom_prompt)}"
+            )
+
+            print(
+                f"QUESTION COUNT: "
+                f"{effective_question_count}"
+            )
+
+            # ----------------------------------------------------
             # 2. Protect against duplicate/retry execution
             # ----------------------------------------------------
 
@@ -115,7 +160,8 @@ async def _run(
                     "chapter_id": chapter_id,
                     "topic": topic,
                     "age": age,
-                    "number_of_questions": n,
+                    "number_of_questions": effective_question_count,
+                    "custom_prompt": custom_prompt,
                     "db": db,
                 }
             )

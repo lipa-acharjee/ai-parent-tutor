@@ -171,6 +171,48 @@ async def generate(
         "status": "queued",
     }
 
+@router.get("/chapter/{chapter_id}")
+async def get_chapter_lesson(
+    chapter_id: str,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    lesson = (
+        await db.execute(
+            select(Lesson)
+            .join(
+                Chapter,
+                Chapter.id == Lesson.chapter_id,
+            )
+            .join(
+                Child,
+                Child.id == Chapter.child_id,
+            )
+            .join(
+                Family,
+                Family.id == Child.family_id,
+            )
+            .where(
+                Chapter.id == chapter_id,
+                Lesson.status == "ready",
+                Family.owner_id == user.id,
+            )
+            .order_by(
+                Lesson.created_at.desc()
+            )
+        )
+    ).scalars().first()
+
+    if not lesson:
+        raise HTTPException(
+            status_code=404,
+            detail="No ready lesson found for this chapter",
+        )
+
+    return {
+        "lesson_id": lesson.id,
+        "status": lesson.status,
+    }
 
 @router.get("/{lesson_id}")
 async def get_lesson(
@@ -207,7 +249,7 @@ async def get_lesson(
         )
 
     # ------------------------------------------------------------
-    # Get practice questions for this lesson
+    # Get practice questions stored in the database
     # ------------------------------------------------------------
 
     questions_result = await db.execute(
@@ -216,6 +258,114 @@ async def get_lesson(
     )
 
     questions = questions_result.scalars().all()
+
+    # ------------------------------------------------------------
+    # Get the original AI-generated questions from lesson.payload
+    #
+    # The Question database table currently stores:
+    # question
+    # expected_answer
+    # explanation
+    #
+    # The AI-generated options are stored in:
+    #
+    # lesson.payload["questions"]["questions"]
+    #
+    # So we merge the AI options back into the API response.
+    # ------------------------------------------------------------
+
+    ai_questions = []
+
+    payload = lesson.payload or {}
+
+    payload_questions = payload.get(
+        "questions",
+        {},
+    )
+
+    if isinstance(payload_questions, dict):
+        ai_questions = payload_questions.get(
+            "questions",
+            [],
+        )
+
+    if not isinstance(ai_questions, list):
+        ai_questions = []
+
+    # Create a lookup using the AI-generated question ID.
+    ai_questions_by_id = {}
+
+    for ai_question in ai_questions:
+
+        if not isinstance(ai_question, dict):
+            continue
+
+        ai_question_id = ai_question.get("id")
+
+        if ai_question_id:
+            ai_questions_by_id[str(ai_question_id)] = ai_question
+
+    # ------------------------------------------------------------
+    # Build the final question response
+    # ------------------------------------------------------------
+
+    practice_questions = []
+
+    for index, question in enumerate(questions):
+
+        ai_question = ai_questions_by_id.get(
+            str(question.id)
+        )
+
+        # --------------------------------------------------------
+        # Primary method:
+        # Match the database question to the AI question by ID.
+        # --------------------------------------------------------
+
+        if ai_question is None and index < len(ai_questions):
+
+            possible_question = ai_questions[index]
+
+            if isinstance(possible_question, dict):
+                ai_question = possible_question
+
+        options = []
+
+        if isinstance(ai_question, dict):
+
+            raw_options = ai_question.get(
+                "options",
+                [],
+            )
+
+            if isinstance(raw_options, list):
+
+                for option in raw_options:
+
+                    if isinstance(option, dict):
+
+                        label = option.get("label")
+
+                        if label is not None:
+                            options.append(
+                                str(label)
+                            )
+
+                    elif option is not None:
+
+                        options.append(
+                            str(option)
+                        )
+
+        practice_questions.append(
+            {
+                "id": question.id,
+                "question": question.question,
+                "options": options,
+                "expected_answer": question.expected_answer,
+                "explanation": question.explanation,
+            }
+        )
 
     return {
         "id": lesson.id,
@@ -227,16 +377,7 @@ async def get_lesson(
             if lesson.video_key
             else None
         ),
-
-        "questions": [
-            {
-                "id": question.id,
-                "question": question.question,
-                "expected_answer": question.expected_answer,
-                "explanation": question.explanation,
-            }
-            for question in questions
-        ],
+        "questions": practice_questions,
     }
 
 

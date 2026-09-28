@@ -42,122 +42,139 @@ class _LearnChapterScreenState
   // ============================================================
 
   Future<void> _startLearning() async {
-  if (_loading) return;
+    if (_loading) return;
 
-  final chapterId =
-      widget.chapter['id']?.toString();
+    final chapterId =
+        widget.chapter['id']?.toString();
 
-  if (chapterId == null || chapterId.isEmpty) {
-    _showError('Chapter ID is missing.');
-    return;
-  }
+    if (chapterId == null || chapterId.isEmpty) {
+      _showError('Chapter ID is missing.');
+      return;
+    }
 
-  final chapterTitle =
-      widget.chapter['title']?.toString() ?? 'Chapter';
+    final chapterTitle =
+        widget.chapter['title']?.toString() ?? 'Chapter';
 
-  final age = _getStudentAge();
+    final age = _getStudentAge();
 
-  setState(() {
-    _loading = true;
-    _statusMessage =
-        'Starting your child’s AI lesson...';
-    _lesson = null;
-  });
+    setState(() {
+      _loading = true;
+      _statusMessage =
+          'Starting your child’s AI lesson...';
+      _lesson = null;
+    });
 
-  try {
-    // --------------------------------------------------------
-    // 1. Ask backend for the lesson
-    // --------------------------------------------------------
+    try {
+      // --------------------------------------------------------
+      // 1. Ask backend for the lesson
+      // --------------------------------------------------------
 
-    final job = await ApiService.generateLesson(
-      chapterId: chapterId,
-      topic: chapterTitle,
-      studentAge: age,
-      numberOfQuestions: 5,
-    );
+      final job = await ApiService.generateLesson(
+        chapterId: chapterId,
+        topic: chapterTitle,
+        studentAge: age,
+        numberOfQuestions: 5,
+      );
 
-    final status =
-        job['status']?.toString() ?? '';
+      final status =
+          job['status']?.toString() ?? '';
 
-    final lessonId =
-        job['lesson_id']?.toString();
+      final lessonId =
+          job['lesson_id']?.toString();
 
-    final jobId =
-        job['job_id']?.toString();
+      final jobId =
+          job['job_id']?.toString();
 
-    // --------------------------------------------------------
-    // 2. Existing lesson found
-    // --------------------------------------------------------
+      // --------------------------------------------------------
+      // 2. Existing lesson found
+      // --------------------------------------------------------
 
-    if (status == 'ready' &&
-        lessonId != null &&
-        lessonId.isNotEmpty) {
-      setState(() {
-        _statusMessage =
-            'Your saved lesson was found. Loading it...';
-      });
+      if (status == 'ready' &&
+          lessonId != null &&
+          lessonId.isNotEmpty) {
+        setState(() {
+          _statusMessage =
+              'Your saved lesson was found. Loading it...';
+        });
 
-      final lesson =
-          await ApiService.getLesson(lessonId);
+        final lesson =
+            await ApiService.getLesson(lessonId);
 
+        // DEBUG: Lesson received from API
+        debugPrint(
+          '========== LESSON FROM API =========='
+        );
+        debugPrint(
+          lesson.toString(),
+        );
+        debugPrint(
+          'TOP LEVEL QUESTIONS: ${lesson['questions']}',
+        );
+        debugPrint(
+          'PAYLOAD: ${lesson['payload']}',
+        );
+        debugPrint(
+          '====================================='
+        );
+
+        if (!mounted) return;
+
+        setState(() {
+          _lesson = lesson;
+          _loading = false;
+          _statusMessage = '';
+        });
+
+        return;
+      }
+
+      // --------------------------------------------------------
+      // 3. Generation is already running
+      // --------------------------------------------------------
+
+      if ((status == 'generating' ||
+              status == 'analyzing' ||
+              status == 'video_generating') &&
+          (jobId == null || jobId.isEmpty) &&
+          lessonId != null &&
+          lessonId.isNotEmpty) {
+        setState(() {
+          _statusMessage =
+              'Your lesson is already being prepared...';
+        });
+
+        await _waitForExistingLesson(lessonId);
+
+        return;
+      }
+
+      // --------------------------------------------------------
+      // 4. New generation
+      // --------------------------------------------------------
+
+      if (jobId == null || jobId.isEmpty) {
+        throw Exception(
+          'The server did not return a job ID or lesson ID.',
+        );
+      }
+
+      await _waitForLesson(jobId);
+    } catch (e) {
       if (!mounted) return;
 
       setState(() {
-        _lesson = lesson;
         _loading = false;
         _statusMessage = '';
       });
 
-      return;
-    }
-
-    // --------------------------------------------------------
-    // 3. Generation is already running
-    // --------------------------------------------------------
-
-    if ((status == 'generating' ||
-            status == 'analyzing' ||
-            status == 'video_generating') &&
-        (jobId == null || jobId.isEmpty) &&
-        lessonId != null &&
-        lessonId.isNotEmpty) {
-      setState(() {
-        _statusMessage =
-            'Your lesson is already being prepared...';
-      });
-
-      await _waitForExistingLesson(lessonId);
-
-      return;
-    }
-
-    // --------------------------------------------------------
-    // 4. New generation
-    // --------------------------------------------------------
-
-    if (jobId == null || jobId.isEmpty) {
-      throw Exception(
-        'The server did not return a job ID or lesson ID.',
+      _showError(
+        e.toString().replaceFirst(
+          'Exception: ',
+          '',
+        ),
       );
     }
-
-    await _waitForLesson(jobId);
-  } catch (e) {
-    if (!mounted) return;
-
-    setState(() {
-      _loading = false;
-      _statusMessage = '';
-    });
-
-    _showError(
-      e.toString().replaceFirst(
-        'Exception: ',
-        '',
-      ),
-    );
   }
-}
 
   // ============================================================
   // POLL LESSON JOB
@@ -219,6 +236,23 @@ class _LearnChapterScreenState
         final lesson =
             await ApiService.getLesson(lessonId);
 
+        // DEBUG: Lesson received after generation
+        debugPrint(
+          '========== LESSON FROM API =========='
+        );
+        debugPrint(
+          lesson.toString(),
+        );
+        debugPrint(
+          'TOP LEVEL QUESTIONS: ${lesson['questions']}',
+        );
+        debugPrint(
+          'PAYLOAD: ${lesson['payload']}',
+        );
+        debugPrint(
+          '====================================='
+        );
+
         if (!mounted) return;
 
         setState(() {
@@ -257,55 +291,78 @@ class _LearnChapterScreenState
     );
   }
 
+  // ============================================================
+  // WAIT FOR EXISTING LESSON
+  // ============================================================
 
   Future<void> _waitForExistingLesson(
-  String lessonId,
-) async {
-  const maxAttempts = 120;
+    String lessonId,
+  ) async {
+    const maxAttempts = 120;
 
-  for (int attempt = 0;
-      attempt < maxAttempts;
-      attempt++) {
-    if (!mounted) return;
-
-    setState(() {
-      _statusMessage =
-          'Preparing your lesson... ${attempt + 1}';
-    });
-
-    final lesson =
-        await ApiService.getLesson(lessonId);
-
-    final status =
-        lesson['status']?.toString() ?? '';
-
-    if (status == 'ready') {
+    for (int attempt = 0;
+        attempt < maxAttempts;
+        attempt++) {
       if (!mounted) return;
 
       setState(() {
-        _lesson = lesson;
-        _loading = false;
-        _statusMessage = '';
+        _statusMessage =
+            'Preparing your lesson... ${attempt + 1}';
       });
 
-      return;
-    }
+      final lesson =
+          await ApiService.getLesson(lessonId);
 
-    if (status == 'failed') {
-      throw Exception(
-        'Lesson generation failed.',
+      // DEBUG: Existing lesson received from API
+      debugPrint(
+        '========== EXISTING LESSON FROM API =========='
+      );
+      debugPrint(
+        lesson.toString(),
+      );
+      debugPrint(
+        'LESSON STATUS: ${lesson['status']}',
+      );
+      debugPrint(
+        'TOP LEVEL QUESTIONS: ${lesson['questions']}',
+      );
+      debugPrint(
+        'PAYLOAD: ${lesson['payload']}',
+      );
+      debugPrint(
+        '==============================================='
+      );
+
+      final status =
+          lesson['status']?.toString() ?? '';
+
+      if (status == 'ready') {
+        if (!mounted) return;
+
+        setState(() {
+          _lesson = lesson;
+          _loading = false;
+          _statusMessage = '';
+        });
+
+        return;
+      }
+
+      if (status == 'failed') {
+        throw Exception(
+          'Lesson generation failed.',
+        );
+      }
+
+      await Future.delayed(
+        const Duration(seconds: 5),
       );
     }
 
-    await Future.delayed(
-      const Duration(seconds: 5),
+    throw Exception(
+      'Lesson generation is taking too long. Please try again.',
     );
   }
-
-  throw Exception(
-    'Lesson generation is taking too long. Please try again.',
-  );
-}
 
   // ============================================================
   // GET CHILD AGE
@@ -397,7 +454,6 @@ class _LearnChapterScreenState
       appBar: AppBar(
         title: const Text('Learn'),
       ),
-
       body: _lesson == null
           ? _buildStartScreen(
               childName,
@@ -797,16 +853,38 @@ class _LearnChapterScreenState
                 if (_lesson == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Lesson is not ready yet.'),
+                      content: Text(
+                        'Lesson is not ready yet.',
+                      ),
                     ),
                   );
                   return;
                 }
 
+                // DEBUG: What is being passed
+                // to PracticeQuestionsScreen?
+                debugPrint(
+                  '========== PRACTICE BUTTON =========='
+                );
+                debugPrint(
+                  'LESSON BEING PASSED: ${_lesson!}',
+                );
+                debugPrint(
+                  'TOP LEVEL QUESTIONS: '
+                  '${_lesson!['questions']}',
+                );
+                debugPrint(
+                  'PAYLOAD: ${_lesson!['payload']}',
+                );
+                debugPrint(
+                  '======================================'
+                );
+
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => PracticeQuestionsScreen(
+                    builder: (_) =>
+                        PracticeQuestionsScreen(
                       lesson: _lesson!,
                       child: widget.child,
                     ),
@@ -826,7 +904,6 @@ class _LearnChapterScreenState
           ),
 
           const SizedBox(height: 30),
-
         ],
       ),
     );
@@ -945,65 +1022,72 @@ class _LearnChapterScreenState
         .toList();
   }
 
-Widget _builderVideoButton() {
-  final videoUrl = _lesson?['video_url']?.toString();
+  // ============================================================
+  // VIDEO BUTTON
+  // ============================================================
 
-  if (videoUrl == null || videoUrl.isEmpty) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.grey.shade100,
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.hourglass_empty),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'The teaching video is not available yet.',
-              style: TextStyle(
-                fontSize: 15,
+  Widget _builderVideoButton() {
+    final videoUrl =
+        _lesson?['video_url']?.toString();
+
+    if (videoUrl == null || videoUrl.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius:
+              BorderRadius.circular(12),
+          color: Colors.grey.shade100,
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.hourglass_empty),
+
+            SizedBox(width: 12),
+
+            Expanded(
+              child: Text(
+                'The teaching video is not available yet.',
+                style: TextStyle(
+                  fontSize: 15,
+                ),
               ),
             ),
+          ],
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      height: 60,
+      child: ElevatedButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  LessonVideoScreen(
+                videoUrl: videoUrl,
+                title:
+                    _lesson?['title']?.toString() ??
+                        'AI Teaching Lesson',
+              ),
+            ),
+          );
+        },
+        icon: const Icon(
+          Icons.play_circle_fill,
+          size: 30,
+        ),
+        label: const Text(
+          'Watch AI Teaching Video',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
           ),
-        ],
+        ),
       ),
     );
   }
-
-  return SizedBox(
-    width: double.infinity,
-    height: 60,
-    child: ElevatedButton.icon(
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => LessonVideoScreen(
-              videoUrl: videoUrl,
-              title: _lesson?['title']?.toString() ??
-                  'AI Teaching Lesson',
-            ),
-          ),
-        );
-      },
-      icon: const Icon(
-        Icons.play_circle_fill,
-        size: 30,
-      ),
-      label: const Text(
-        'Watch AI Teaching Video',
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    ),
-  );
 }
-
-
-}
-

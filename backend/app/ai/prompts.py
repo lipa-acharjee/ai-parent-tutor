@@ -29,6 +29,15 @@ Rules:
 - Do not add ```json.
 - Return JSON only.
 
+PARENT'S OPTIONAL INSTRUCTIONS:
+{custom_prompt}
+
+IMPORTANT:
+- Treat the parent's instructions as teaching preferences.
+- Use them to decide which supported concepts deserve additional attention.
+- Do not invent facts that are not present in the textbook context.
+- If the parent asks for information outside the textbook, do not introduce unsupported facts.
+
 TEXTBOOK CONTEXT:
 {context}
 """
@@ -139,6 +148,19 @@ Rules:
 - Do not add ```json.
 - Return JSON only.
 
+PARENT'S OPTIONAL INSTRUCTIONS:
+{custom_prompt}
+
+CUSTOM INSTRUCTION RULES:
+
+- The parent may request additional explanation of specific terms.
+- The parent may request more focus on particular concepts.
+- The parent may request examples, simpler explanations, or deeper explanations.
+- Follow these requests when they are compatible with the supplied textbook context.
+- The parent instruction must not cause you to invent textbook facts.
+- If the parent requests something unrelated to the textbook, remain grounded in the textbook.
+- The parent instruction is a preference for how the lesson should be taught.
+
 TEXTBOOK CONTEXT:
 {context}
 
@@ -148,39 +170,136 @@ EXTRACTED CONCEPTS:
 
 
 QUESTION_PROMPT = """
-You are an expert educational question generator.
+You are a strict educational assessment generator.
 
-Create {n} conceptual questions for a {age}-year-old child.
+Your task is to create EXACTLY {n} multiple-choice questions for a {age}-year-old child.
 
-Use ONLY the supplied textbook context and lesson.
+IMPORTANT:
+Every question MUST be a multiple-choice question.
+Every question MUST contain exactly 4 answer options.
+NEVER create a written-answer question.
+NEVER omit the "options" field.
 
-Questions should test understanding rather than memorization.
+Use ONLY information supported by the supplied TEXTBOOK CONTEXT and LESSON.
 
-Avoid:
-- trick questions
-- unnecessarily difficult language
-- information outside the textbook
-- duplicate questions
+The questions must test whether the child understands the lesson, not just whether
+the child can memorize a sentence.
+
+QUESTION QUALITY:
+
+- Use simple, age-appropriate language.
+- Avoid trick questions.
+- Avoid confusing wording.
+- Avoid negative questions such as "Which is NOT..." unless absolutely necessary.
+- Avoid duplicate questions.
+- Avoid questions about information outside the textbook.
+- Test important concepts from the lesson.
+- Prefer "why", "how", "which", or simple situation-based questions when supported
+  by the textbook.
+- Each question must have exactly ONE correct answer.
+- The other three options must be plausible but incorrect.
+- All four options must be different.
+- The correct answer MUST appear exactly in the options list.
+- expected_answer MUST be exactly identical to the correct option.
+- Do not use A, B, C, D as option labels.
+- Do not put the answer outside the options.
+- Do not explain which option is correct anywhere except in expected_answer.
+- Do not use information that is not supported by the textbook context.
+
+REQUIRED OUTPUT FORMAT:
 
 Return ONLY valid JSON.
 
-The JSON must contain:
+The response MUST have exactly this structure:
 
 {
   "questions": [
     {
-      "question": "question text",
-      "expected_answer": "expected answer",
-      "explanation": "why this answer is correct"
+      "question": "What is the question?",
+      "options": [
+        "First possible answer",
+        "Second possible answer",
+        "Third possible answer",
+        "Fourth possible answer"
+      ],
+      "expected_answer": "The exact correct answer from the options",
+      "explanation": "A simple child-friendly explanation of why the correct answer is correct."
     }
   ]
 }
 
-Rules:
-- Generate exactly {n} questions.
-- Do not use markdown.
-- Do not add ```json.
-- Return JSON only.
+STRICT RULES:
+
+1. The "questions" field MUST be an array.
+
+2. The array MUST contain exactly {n} question objects.
+
+3. EVERY question object MUST contain ALL FOUR fields:
+   - question
+   - options
+   - expected_answer
+   - explanation
+
+4. The "options" field MUST be an array.
+
+5. EVERY "options" array MUST contain EXACTLY 4 strings.
+
+6. The four options MUST be different from each other.
+
+7. "expected_answer" MUST exactly match ONE of the four options.
+
+8. There MUST be exactly ONE correct option.
+
+9. NEVER return a question without options.
+
+10. NEVER return:
+    {
+      "question": "...",
+      "expected_answer": "...",
+      "explanation": "..."
+    }
+
+11. NEVER return written-answer questions.
+
+12. NEVER return true/false questions.
+
+13. NEVER return fill-in-the-blank questions.
+
+14. NEVER return markdown.
+
+15. NEVER add ```json.
+
+16. NEVER add comments.
+
+17. NEVER add text before or after the JSON.
+
+FINAL SELF-CHECK BEFORE RETURNING:
+
+Before producing the final response, silently check:
+
+- Did I generate exactly {n} questions?
+- Does every question have an "options" field?
+- Does every options field contain exactly 4 strings?
+- Are all four options different?
+- Does expected_answer exactly match one option?
+- Is there exactly one correct answer?
+- Is every question supported by the textbook?
+- Are the questions appropriate for a {age}-year-old child?
+
+If any answer is NO, fix the JSON before returning it.
+
+PARENT'S OPTIONAL INSTRUCTIONS:
+{custom_prompt}
+
+CUSTOM QUESTION INSTRUCTION RULES:
+
+- The parent may request a different number of questions.
+- The parent may request a different difficulty level.
+- The parent may request additional questions about particular terms or concepts.
+- Follow the parent's requested difficulty while keeping questions appropriate for the child's age.
+- Follow the requested question count when it is explicitly stated.
+- Only use information supported by the textbook context.
+- Do not allow the parent's instructions to introduce unsupported facts.
 
 TEXTBOOK CONTEXT:
 {context}
@@ -226,6 +345,7 @@ EXPECTED ANSWER:
 CHILD ANSWER:
 {answer}
 """
+
 
 CHAPTER_FROM_TEXT_PROMPT = """
 You are an expert child-education content creator.

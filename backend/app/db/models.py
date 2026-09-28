@@ -102,8 +102,19 @@ class Chapter(Base):
     subject: Mapped[str] = mapped_column(String(100))
     grade: Mapped[str] = mapped_column(String(40))
 
+    # Optional instructions provided by the parent.
+    #
+    # Examples:
+    # "Explain difficult terms in more detail."
+    # "Focus more on the water cycle."
+    # "Create 10 questions."
+    # "Make the questions harder."
+    custom_prompt: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
     # SHA-256 hash of the chapter's actual content.
-    # Used to detect whether this chapter was already processed.
     content_hash: Mapped[str | None] = mapped_column(
         String(64),
         nullable=True,

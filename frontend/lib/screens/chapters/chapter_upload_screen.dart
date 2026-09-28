@@ -48,6 +48,8 @@ class _ChapterUploadScreenState
 
   final _titleController = TextEditingController();
   final _subjectController = TextEditingController();
+  final _customPromptController =
+    TextEditingController();
 
   ChapterInputType _inputType = ChapterInputType.pdf;
 
@@ -74,6 +76,7 @@ class _ChapterUploadScreenState
   void dispose() {
     _titleController.dispose();
     _subjectController.dispose();
+    _customPromptController.dispose();
     super.dispose();
   }
 
@@ -316,19 +319,21 @@ class _ChapterUploadScreenState
         );
       } else {
         result = await ApiService.uploadChapterImages(
-          childId: widget.child['id'].toString(),
-          title: _titleController.text.trim(),
-          subject: _subjectController.text.trim(),
-          grade: widget.child['grade'].toString(),
-          imageFiles: _imageFiles
-              .map(
-                (file) => ChapterImage(
-                  name: file.name,
-                  bytes: file.bytes,
-                ),
-              )
-              .toList(),
-);
+        childId: widget.child['id'].toString(),
+        title: _titleController.text.trim(),
+        subject: _subjectController.text.trim(),
+        grade: widget.child['grade'].toString(),
+        customPrompt:
+            _customPromptController.text.trim(),
+        imageFiles: _imageFiles
+            .map(
+              (file) => ChapterImage(
+                name: file.name,
+                bytes: file.bytes,
+              ),
+            )
+            .toList(),
+      );
       }
 
       if (!mounted) {
@@ -414,6 +419,65 @@ class _ChapterUploadScreenState
   // ============================================================
   // BUILD
   // ============================================================
+
+   Widget _buildCustomPromptField() {
+  return Column(
+    crossAxisAlignment:
+        CrossAxisAlignment.stretch,
+    children: [
+      const SizedBox(height: 20),
+
+      const Text(
+        'Optional Instructions for AI',
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+
+      const SizedBox(height: 8),
+
+      TextFormField(
+        controller:
+            _customPromptController,
+        enabled: !_isUploading,
+        minLines: 4,
+        maxLines: 7,
+        maxLength: 3000,
+        decoration: const InputDecoration(
+          border: OutlineInputBorder(),
+          hintText:
+              'Tell the AI how you want this chapter taught.\n\n'
+              'Examples:\n'
+              '• Explain difficult terms in more detail.\n'
+              '• Focus more on the water cycle.\n'
+              '• Create 10 questions.\n'
+              '• Make the questions more difficult.',
+          prefixIcon: Padding(
+            padding:
+                EdgeInsets.only(
+              bottom: 70,
+            ),
+            child: Icon(
+              Icons.auto_awesome,
+            ),
+          ),
+          alignLabelWithHint: true,
+        ),
+      ),
+
+      const SizedBox(height: 6),
+
+      const Text(
+        'This is optional. Leave it empty to use the normal AI teaching settings.',
+        style: TextStyle(
+          fontSize: 12,
+        ),
+      ),
+    ],
+  );
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -624,6 +688,10 @@ class _ChapterUploadScreenState
                 if (_inputType ==
                     ChapterInputType.images)
                   _buildImageSelector(),
+
+                if (_inputType ==
+                    ChapterInputType.images)
+                  _buildCustomPromptField(),
 
                 const SizedBox(height: 24),
 

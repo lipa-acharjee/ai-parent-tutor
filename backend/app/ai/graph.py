@@ -28,6 +28,8 @@ class LessonState(TypedDict, total=False):
 
     number_of_questions: int
 
+    custom_prompt: str
+
     db: object
 
     context: str
@@ -64,7 +66,8 @@ def concepts_node(state):
 
     return {
         "concepts": extract_concepts(
-            state["context"]
+            state["context"],
+            state.get("custom_prompt", ""),
         )
     }
 
@@ -76,6 +79,7 @@ def lesson_node(state):
             state["context"],
             state["concepts"],
             state["age"],
+            state.get("custom_prompt", ""),
         )
     }
 
@@ -87,9 +91,8 @@ def questions_node(state):
             state["context"],
             state["lesson"],
             state["age"],
-            state[
-                "number_of_questions"
-            ],
+            state["number_of_questions"],
+            state.get("custom_prompt", ""),
         )
     }
 

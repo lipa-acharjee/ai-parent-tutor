@@ -1,4 +1,5 @@
 import json
+import re
 
 from app.ai.models import llm_provider
 from app.ai.prompts import (
@@ -9,6 +10,42 @@ from app.ai.prompts import (
     CHAPTER_FROM_TEXT_PROMPT,
 )
 
+
+def resolve_question_count(
+    default_count: int,
+    custom_prompt: str | None,
+) -> int:
+
+    if not custom_prompt:
+        return default_count
+
+    text = custom_prompt.lower()
+
+    patterns = [
+        r"\b(\d+)\s*(?:questions|question|mcqs|mcq)\b",
+        r"\b(?:make|create|generate|give)\s+(\d+)\s+"
+        r"(?:questions|question|mcqs|mcq)\b",
+    ]
+
+    for pattern in patterns:
+
+        match = re.search(
+            pattern,
+            text,
+        )
+
+        if match:
+
+            requested = int(
+                match.group(1)
+            )
+
+            return max(
+                1,
+                min(requested, 20),
+            )
+
+    return default_count
 
 def _json(text: str):
     text = text.strip()
@@ -52,11 +89,21 @@ def generate_chapter_from_text(
 
     return _json(response.content)
 
-def extract_concepts(context):
+def extract_concepts(
+    context,
+    custom_prompt="",
+):
 
-    prompt = CONCEPT_PROMPT.replace(
-        "{context}",
-        context,
+    prompt = (
+        CONCEPT_PROMPT
+        .replace(
+            "{context}",
+            context,
+        )
+        .replace(
+            "{custom_prompt}",
+            custom_prompt or "No additional parent instructions.",
+        )
     )
 
     response = llm_provider.chat(prompt)
@@ -64,11 +111,19 @@ def extract_concepts(context):
     return _json(response.content)
 
 
-def generate_lesson(context, concepts, age):
+def generate_lesson(
+    context,
+    concepts,
+    age,
+    custom_prompt="",
+):
 
     prompt = (
         LESSON_PROMPT
-        .replace("{context}", context)
+        .replace(
+            "{context}",
+            context,
+        )
         .replace(
             "{concepts}",
             json.dumps(concepts),
@@ -76,6 +131,10 @@ def generate_lesson(context, concepts, age):
         .replace(
             "{age}",
             str(age),
+        )
+        .replace(
+            "{custom_prompt}",
+            custom_prompt or "No additional parent instructions.",
         )
     )
 
@@ -89,11 +148,15 @@ def generate_questions(
     lesson,
     age,
     n,
+    custom_prompt="",
 ):
 
     prompt = (
         QUESTION_PROMPT
-        .replace("{context}", context)
+        .replace(
+            "{context}",
+            context,
+        )
         .replace(
             "{lesson}",
             json.dumps(lesson),
@@ -105,6 +168,10 @@ def generate_questions(
         .replace(
             "{n}",
             str(n),
+        )
+        .replace(
+            "{custom_prompt}",
+            custom_prompt or "No additional parent instructions.",
         )
     )
 

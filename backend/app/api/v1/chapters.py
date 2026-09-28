@@ -55,12 +55,33 @@ async def upload_chapter(
     subject: str = Form(...),
     grade: str = Form(...),
 
+    # Optional parent instructions.
+    custom_prompt: str = Form(""),
+
     files: list[UploadFile] = File(...),
 
     db: AsyncSession = Depends(get_db),
 
     user=Depends(get_current_user),
 ):
+
+        # =====================================================
+    # Parent custom instructions
+    # =====================================================
+
+    custom_prompt = custom_prompt.strip()
+
+    if len(custom_prompt) > 3000:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Custom instructions must be "
+                "3000 characters or less."
+            ),
+        )
+
+    if not custom_prompt:
+        custom_prompt = None
 
     # =====================================================
     # 1. Find parent's family
@@ -364,14 +385,15 @@ async def upload_chapter(
     chapter_content_hash = checksum(upload_data)
 
     chapter = Chapter(
-        id=chapter_id,
-        child_id=child.id,
-        title=title,
-        subject=subject,
-        grade=grade,
-        content_hash=chapter_content_hash,
-        status="processing",
-    )
+    id=chapter_id,
+    child_id=child.id,
+    title=title,
+    subject=subject,
+    grade=grade,
+    custom_prompt=custom_prompt,
+    content_hash=chapter_content_hash,
+    status="processing",
+)
 
     db.add(chapter)
 
@@ -462,14 +484,15 @@ async def upload_chapter(
     # =====================================================
 
     return {
-        "chapter_id": chapter_id,
-        "status": chapter.status,
-        "pages": pages,
-        "filename": upload_filename,
-        "upload_type": upload_type,
-        "files_received": len(files),
-        "content_hash": chapter.content_hash,
-    }
+    "chapter_id": chapter_id,
+    "status": chapter.status,
+    "pages": pages,
+    "filename": upload_filename,
+    "upload_type": upload_type,
+    "files_received": len(files),
+    "content_hash": chapter.content_hash,
+    "custom_prompt": chapter.custom_prompt,
+}
 
 @router.post("/from-text")
 async def create_chapter_from_text(
