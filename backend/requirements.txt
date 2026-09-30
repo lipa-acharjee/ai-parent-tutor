@@ -3,7 +3,7 @@ uvicorn[standard]
 python-multipart
 pydantic>=2
 pydantic-settings
-sqlalchemy>=2
+sqlalchemy[asyncio]>=2
 asyncpg
 alembic
 pgvector
