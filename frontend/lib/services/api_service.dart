@@ -19,7 +19,7 @@ class ChapterImage {
 
 class ApiService {
   static const String baseUrl =
-      'http://localhost:8000';
+      'https://ai-parent-tutor-lk94.onrender.com/';
 
 
 static Future<Map<String, dynamic>> createChapterFromText({
