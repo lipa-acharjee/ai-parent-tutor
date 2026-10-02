@@ -175,9 +175,21 @@ def generate_questions(
         )
     )
 
+    print("CHAPTER AI: starting Groq call", flush=True)
+
     response = llm_provider.chat(prompt)
 
-    return _json(response.content)
+    print("CHAPTER AI: Groq call completed", flush=True)
+    print(
+        f"CHAPTER AI: response length = {len(response.content)}",
+        flush=True,
+    )
+
+    result = _json(response.content)
+
+    print("CHAPTER AI: JSON parsing completed", flush=True)
+
+    return result
 
 
 def evaluate_answer(
