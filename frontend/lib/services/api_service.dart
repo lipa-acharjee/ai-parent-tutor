@@ -1013,4 +1013,184 @@ static Future<Map<String, dynamic>> getChapterLesson(
       '$errorMessage',
     );
   }
+
+    // ============================================================
+  // SHARED VIDEOS
+  // ============================================================
+
+  // ------------------------------------------------------------
+  // 1. UPLOAD SHARED VIDEO
+  //
+  // POST /api/v1/shared-videos
+  //
+  // Form fields:
+  // topic
+  // grade
+  // file (MP4)
+  // ------------------------------------------------------------
+
+  static Future<Map<String, dynamic>> uploadSharedVideo({
+    required String topic,
+    required String grade,
+    required List<int> fileBytes,
+    required String fileName,
+  }) async {
+    final token = await AuthService.getAccessToken();
+
+    if (token == null || token.isEmpty) {
+      throw Exception('Please login again.');
+    }
+
+    if (fileBytes.isEmpty) {
+      throw Exception('Video file is empty.');
+    }
+
+    if (!fileName.toLowerCase().endsWith('.mp4')) {
+      throw Exception('Only MP4 videos are supported.');
+    }
+
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/api/v1/shared-videos'),
+    );
+
+    request.headers['Authorization'] = 'Bearer $token';
+
+    request.fields['topic'] = topic.trim();
+    request.fields['grade'] = grade.trim();
+
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'file',
+        fileBytes,
+        filename: fileName,
+        contentType: MediaType('video', 'mp4'),
+      ),
+    );
+
+    final streamedResponse = await request.send();
+
+    final response = await http.Response.fromStream(
+      streamedResponse,
+    );
+
+    debugPrint(
+      'SHARED VIDEO UPLOAD STATUS: ${response.statusCode}',
+    );
+
+    debugPrint(
+      'SHARED VIDEO UPLOAD RESPONSE: ${response.body}',
+    );
+
+    if (response.statusCode >= 200 &&
+        response.statusCode < 300) {
+      final data = jsonDecode(response.body);
+
+      if (data is Map<String, dynamic>) {
+        return data;
+      }
+
+      throw Exception('Unexpected upload response.');
+    }
+
+    String errorMessage;
+
+    try {
+      final errorData = jsonDecode(response.body);
+
+      errorMessage = errorData['detail']?.toString()
+          ?? response.body;
+    } catch (_) {
+      errorMessage = response.body;
+    }
+
+    throw Exception(
+      'Video upload failed (${response.statusCode}): $errorMessage',
+    );
+  }
+
+
+  // ------------------------------------------------------------
+  // 2. GET SHARED VIDEOS
+  //
+  // GET /api/v1/shared-videos
+  // ------------------------------------------------------------
+
+  static Future<List<dynamic>> getSharedVideos() async {
+    final token = await AuthService.getAccessToken();
+
+    if (token == null || token.isEmpty) {
+      throw Exception('Please login again.');
+    }
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/v1/shared-videos'),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    debugPrint(
+      'SHARED VIDEOS STATUS: ${response.statusCode}',
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+
+      if (data is List) {
+        return data;
+      }
+
+      throw Exception('Unexpected shared videos response.');
+    }
+
+    throw Exception(
+      'Could not retrieve shared videos: ${response.body}',
+    );
+  }
+
+
+  // ------------------------------------------------------------
+  // 3. GET VIDEO PLAYBACK URL
+  //
+  // GET /api/v1/shared-videos/{video_id}/play
+  // ------------------------------------------------------------
+
+  static Future<Map<String, dynamic>> getSharedVideoPlayback(
+    String videoId,
+  ) async {
+    final token = await AuthService.getAccessToken();
+
+    if (token == null || token.isEmpty) {
+      throw Exception('Please login again.');
+    }
+
+    final response = await http.get(
+      Uri.parse(
+        '$baseUrl/api/v1/shared-videos/$videoId/play',
+      ),
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    debugPrint(
+      'VIDEO PLAYBACK STATUS: ${response.statusCode}',
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+
+      if (data is Map<String, dynamic>) {
+        return data;
+      }
+
+      throw Exception('Unexpected playback response.');
+    }
+
+    throw Exception(
+      'Could not load video: ${response.body}',
+    );
+  }
 }
+

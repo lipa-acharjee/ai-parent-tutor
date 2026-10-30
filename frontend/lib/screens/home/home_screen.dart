@@ -1,5 +1,8 @@
+
 import 'package:flutter/material.dart';
+
 import '../children/children_screen.dart';
+import '../shared_videos/shared_video_library_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   final Map<String, dynamic> user;
@@ -20,7 +23,7 @@ class HomeScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {
-              print('Logout pressed');
+              // Logout functionality will be implemented here.
             },
           ),
         ],
@@ -51,6 +54,7 @@ class HomeScreen extends StatelessWidget {
 
             const SizedBox(height: 30),
 
+            // My Children
             Card(
               child: ListTile(
                 leading: const Icon(
@@ -66,22 +70,21 @@ class HomeScreen extends StatelessWidget {
                 subtitle: const Text(
                   'View and manage your children',
                 ),
-                trailing: const Icon(
-                  Icons.arrow_forward_ios,
-                ),
+                trailing: const Icon(Icons.arrow_forward_ios),
                 onTap: () {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const ChildrenScreen(),
-                        ),
-                    );
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ChildrenScreen(),
+                    ),
+                  );
                 },
               ),
             ),
 
             const SizedBox(height: 16),
 
+            // Learning
             Card(
               child: ListTile(
                 leading: const Icon(
@@ -97,11 +100,41 @@ class HomeScreen extends StatelessWidget {
                 subtitle: const Text(
                   'Continue your child’s learning',
                 ),
-                trailing: const Icon(
-                  Icons.arrow_forward_ios,
-                ),
+                trailing: const Icon(Icons.arrow_forward_ios),
                 onTap: () {
-                  print('Learning pressed');
+                 // Learning navigation will be implemented here.
+                },
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Shared Videos
+            Card(
+              child: ListTile(
+                leading: const Icon(
+                  Icons.video_library,
+                  size: 40,
+                  color: Colors.indigo,
+                ),
+                title: const Text(
+                  'Shared Videos',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Explore educational videos shared by parents',
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          const SharedVideoLibraryScreen(),
+                    ),
+                  );
                 },
               ),
             ),

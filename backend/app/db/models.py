@@ -6,6 +6,20 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
 from app.db.database import Base
 
+import uuid
+
+from datetime import datetime
+
+from sqlalchemy import (
+    String,
+    Integer,
+    DateTime,
+    ForeignKey,
+    func,
+)
+
+from sqlalchemy.orm import Mapped, mapped_column
+
 class Role(str, Enum):
     PARENT = "parent"
     CHILD = "child"
@@ -195,3 +209,59 @@ class Progress(Base):
     mastery_score: Mapped[int] = mapped_column(Integer, default=0)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     __table_args__ = (UniqueConstraint("child_id", "concept_id"),)
+
+class SharedVideo(Base):
+    __tablename__ = "shared_videos"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+
+    topic: Mapped[str] = mapped_column(
+        String(200),
+        nullable=False,
+        index=True,
+    )
+
+    grade: Mapped[str] = mapped_column(
+        String(40),
+        nullable=False,
+        index=True,
+    )
+
+    storage_key: Mapped[str] = mapped_column(
+        String(500),
+        nullable=False,
+        unique=True,
+    )
+
+    original_filename: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    content_type: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        default="video/mp4",
+    )
+
+    size_bytes: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    uploaded_by: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
